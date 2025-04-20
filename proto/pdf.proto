@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-typst-pdf/proto";
+
+service PDFService {
+    rpc GeneratePDF (PDFRequest) returns (PDFResponse);
+}
+
+message PDFRequest {
+    string template = 1;
+    map<string, string> data = 2;
+}
+
+message PDFResponse {
+    string url = 1;
+}
