@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#28](https://github.com/austinjb32/go-typst-pdf/pull/28) Action-test  
+*Author:* @austinjb32
+
+**Changelog:**  
+-fixed
+
+---
+
+## 20-07-2025
+
 ### [#27](https://github.com/austinjb32/go-typst-pdf/pull/27) fix: update release notes file handling in version release workflow  
 *Author:* @austinjb32
 
