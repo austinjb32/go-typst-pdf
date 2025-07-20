@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g., v1.2.3)"
+        description: "Semantic version for release (e.g., v1.2.3)"
         required: true
-      target-branch:
+      target_branch:
         description: "Branch to tag"
         default: main
         required: true
@@ -22,18 +22,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Extract full release notes from CHANGELOG.md
-        id: changelog
-        run: |
-          RELEASE_NOTES=$(cat CHANGELOG.md)
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create Git Tag
+      - name: Setup Git
         run: |
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
+
+      - name: Read full changelog content
+        id: changelog
+        run: |
+          # Read entire CHANGELOG.md
+          if [[ -f CHANGELOG.md ]]; then
+            CHANGELOG_CONTENT=$(cat CHANGELOG.md)
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGELOG.md not found" >&2
+            exit 1
+          fi
+
+      - name: Create Git Tag
+        run: |
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
 
@@ -41,8 +50,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          target_commitish: ${{ github.event.inputs.target-branch }}
+          target_commitish: ${{ github.event.inputs.target_branch }}
           name: Release ${{ github.event.inputs.version }}
-          body: ${{ steps.changelog.outputs.release_notes }}
+          body: ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

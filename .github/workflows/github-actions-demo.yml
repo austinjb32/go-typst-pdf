@@ -9,60 +9,68 @@ on:
       - main
 
 jobs:
-  Changelog-Creator:
+  changelog:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Git
+      - name: Setup Git
         run: |
-          git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
 
       - name: Get PR Metadata & Changelog
-        id: changelog
+        id: pr_data
         run: |
-          PR_DATA=$(gh pr view ${{ github.event.number }} --json title,author,number,updatedAt,body,url)
-        
-          TITLE=$(echo "$PR_DATA" | jq -r '.title')
-          AUTHOR=$(echo "$PR_DATA" | jq -r '.author.login')
-          NUMBER=$(echo "$PR_DATA" | jq -r '.number')
-          DATE=$(echo "$PR_DATA" | jq -r '.updatedAt' | cut -d'T' -f1 | awk -F'-' '{print $3 "-" $2 "-" $1}')
-          URL=$(echo "$PR_DATA" | jq -r '.url')
-        
-          RAW_CHANGELOG=$(echo "$PR_DATA" | jq -r '.body' | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
+          PR_JSON=$(gh pr view ${{ github.event.number }} --json title,author,number,body,url,mergedAt)
 
-          echo "date=$DATE" >> $GITHUB_OUTPUT
-          echo "number=$NUMBER" >> $GITHUB_OUTPUT
+          TITLE=$(echo "$PR_JSON" | jq -r '.title')
+          AUTHOR=$(echo "$PR_JSON" | jq -r '.author.login')
+          NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+          URL=$(echo "$PR_JSON" | jq -r '.url')
+          DATE=$(echo "$PR_JSON" | jq -r '.mergedAt' | cut -d"T" -f1 | awk -F- '{print $3 "-" $2 "-" $1}')
+          # Extract lines under "## Release Changelog (Required)" section until next heading or EOF
+          CHANGELOG=$(echo "$PR_JSON" | jq -r '.body' | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
+
+          # Escape any special characters in changelog for YAML multiline
+          CHANGELOG_ESCAPED=$(printf '%s\n' "$CHANGELOG")
+
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "number=$NUMBER" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$RAW_CHANGELOG" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepend formatted changelog to CHANGELOG.md
+      - name: Format and prepend changelog entry
         run: |
-          HEADER="${{ steps.changelog.outputs.date }} [#${{ steps.changelog.outputs.number }}: ${{ steps.changelog.outputs.title }}](${{ steps.changelog.outputs.url }}) - (${{ steps.changelog.outputs.author }})"
+          ENTRY="## ${{ steps.pr_data.outputs.date }}\n\n### [#${{ steps.pr_data.outputs.number }}](${{ steps.pr_data.outputs.url }}) ${{ steps.pr_data.outputs.title }}  \n*Author:* @${{ steps.pr_data.outputs.author }}\n\n**Changelog:**  \n"
 
-          {
-            echo "$HEADER"
-            echo ""
-            echo "${{ steps.changelog.outputs.changelog }}"
-            echo ""
-            if [ -f CHANGELOG.md ]; then
-              cat CHANGELOG.md
+          # Add each changelog line with dash and space prefix, ignoring empty lines
+          while IFS= read -r line; do
+            if [[ -n "$line" ]]; then
+              ENTRY+="- $line\n"
             fi
-          } > new_changelog.md
+          done <<< "${{ steps.pr_data.outputs.changelog }}"
 
-          mv new_changelog.md CHANGELOG.md
+          ENTRY+="\n---\n\n"
+
+          # Prepend entry to existing CHANGELOG.md or create if missing
+          if [[ -f CHANGELOG.md ]]; then
+            # Create temp file with new entry then append old changelog
+            echo -e "$ENTRY$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "$ENTRY" > CHANGELOG.md
+          fi
 
           git add CHANGELOG.md
-          git commit -m "Append changelog for PR #${{ github.event.number }}"
+          git commit -m "Update changelog for PR #${{ steps.pr_data.outputs.number }}"
           git push
