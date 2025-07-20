@@ -50,7 +50,7 @@ jobs:
             URL=$(gh pr view $pr --json url --jq '.url')
             SECTION=$(echo "$BODY" | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
             if [ -n "$SECTION" ]; then
-              echo "### $TITLE ([#$pr]($URL)) by @$AUTHOR" >> $TEMPFILE
+              echo "** $TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
               echo "$SECTION" | sed '/^\s*$/d' >> $TEMPFILE
               echo "" >> $TEMPFILE
             fi
@@ -67,10 +67,10 @@ jobs:
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
           VERSION="${{ github.event.inputs.version }}"
           {
-            echo "What's Changed"
+            echo "## What's Changed"
             echo ""
             echo "${{ steps.changelogs.outputs.changelog }}"
-            echo "Full Changelog: $PREV_TAG...$VERSION"
+            echo "**Full Changelog**: [$PREV_TAG...$VERSION](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION)"
           } > release_body.txt
           echo "body<<EOF" >> $GITHUB_OUTPUT
           cat release_body.txt >> $GITHUB_OUTPUT
