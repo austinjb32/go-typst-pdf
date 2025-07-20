@@ -1,5 +1,5 @@
-name: Changelog Creator
-run-name: ${{ github.actor }} is creating a changelog 🚀
+name: 📜 Changelog Creator
+run-name: ${{ github.actor }} is creating a changelog 📜
 
 on:
   pull_request:
@@ -45,7 +45,6 @@ jobs:
           echo "author=$AUTHOR" >> $GITHUB_OUTPUT
           echo "number=$NUMBER" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
