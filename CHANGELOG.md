@@ -1,2 +1,1 @@
-- Cool Stuff 2.0
-- Very Good
+- Cool Days of Summer
