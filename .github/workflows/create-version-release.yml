@@ -1,5 +1,5 @@
 name: 🚀 Trigger Version Release
-
+run-name: ${{ github.actor }} is creating a release 🚀
 on:
   workflow_dispatch:
     inputs:
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
 
     steps:
       - name: 🧾 Checkout repository
@@ -29,17 +30,6 @@ jobs:
             exit 1
           fi
 
-      - name: 📦 Extract release block from CHANGELOG.md
-        id: changelog
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          CONTENT=$(cat CHANGELOG.md)
-          
-          # Create release notes with version and extracted content
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$CONTENT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: 🏷️ Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
@@ -49,8 +39,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          target_commitish: main  # Change this if you tag from a different branch
+          target_commitish: main
           name: "🚀 Release ${{ github.event.inputs.version }}"
-          body: ${{ steps.changelog.outputs.release_notes }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
