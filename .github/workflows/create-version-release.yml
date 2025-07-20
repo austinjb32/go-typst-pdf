@@ -1,4 +1,4 @@
-name: 🚀 Auto Version Release from PR Changelogs
+name: 🚀 Auto Gem Release
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
         description: "Which part of the version to bump?"
         required: true
         type: choice
+        default: patch
         options:
           - patch
           - minor
@@ -17,133 +18,54 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Important to access full tag and commit history
+          fetch-depth: 0
 
-      - name: Set up Git
+      - name: set git config
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --global user.name "$(gh api /users/${GITHUB_ACTOR} | jq .name -r)"
+          git config -l
 
-      - name: Get latest tag
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          ruby-version: ruby
+
+      - name: Install the gem-release
+        run: gem install gem-release
+
+      - name: Bump version and get latest tag
         id: get_tag
-        run: |
-          TAG=$(git tag --sort=-creatordate | head -n 1)
-          if [ -z "$TAG" ]; then
-            TAG="v0.0.0"
-          fi
-          echo "current_tag=$TAG" >> "$GITHUB_OUTPUT"
+        run: ./scripts/get_latest_tag.sh ${{ github.event.inputs.bump }}
 
-      - name: Calculate next version
-        id: next_version
-        run: |
-          CUR="${{ steps.get_tag.outputs.current_tag }}"
-          CUR="${CUR#v}"
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CUR"
-          BUMP="${{ github.event.inputs.bump }}"
-          if [ "$BUMP" = "major" ]; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif [ "$BUMP" = "minor" ]; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-          NEXT="v$MAJOR.$MINOR.$PATCH"
-          echo "next_version=$NEXT" >> "$GITHUB_OUTPUT"
-
-      - name: Get merged PRs since previous tag
-        id: pr_list
-        run: |
-          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
-          if [ "$PREV_TAG" = "v0.0.0" ]; then
-            PREV_DATE=$(git log --reverse --format=%cI | head -n 1)
-          else
-            PREV_DATE=$(git log -1 --format=%cI "$PREV_TAG")
-          fi
-          gh pr list --state merged --base main --search "merged:>$PREV_DATE" --json number > prs.json
+      - name: Generate changelog
+        id: changelog
+        run: ./scripts/generate_changelog.sh "${{ steps.get_tag.outputs.tag }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract changelogs from PRs
-        id: changelogs
-        run: |
-          PRS=$(jq '.[].number' prs.json)
-          if [ -z "$PRS" ]; then
-            echo "No merged PRs found since last release."
-            echo "changelog=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          TEMPFILE=changelog_sections.txt
-          > $TEMPFILE
-
-          for pr in $PRS; do
-            BODY=$(gh pr view $pr --json body --jq '.body')
-            TITLE=$(gh pr view $pr --json title --jq '.title')
-            AUTHOR=$(gh pr view $pr --json author --jq '.author.login')
-            URL=$(gh pr view $pr --json url --jq '.url')
-            SECTION=$(echo "$BODY" | awk 'BEGIN{IGNORECASE=1} /^##[ ]*Release Changelog[ ]*\(Required\)/{flag=1; next} /^## /{flag=0} flag')
-            if [ -n "$SECTION" ]; then
-              echo "**$TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
-              echo "$SECTION" | sed '/^\s*$/d' >> $TEMPFILE
-              echo "" >> $TEMPFILE
-            fi
-          done
-
-          {
-            echo "changelog<<EOF"
-            cat $TEMPFILE
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build release body
-        id: release_body
-        run: |
-          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
-          VERSION="${{ steps.next_version.outputs.next_version }}"
-          CHANGELOG="${{ steps.changelogs.outputs.changelog }}"
-
-          if [ -z "$CHANGELOG" ]; then
-            echo "No changelog entries found. Skipping release."
-            exit 0
-          fi
-
-          {
-            echo "## What's Changed"
-            echo ""
-            echo "$CHANGELOG"
-            echo ""
-            echo "**Full Changelog**: [$PREV_TAG...$VERSION](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION)"
-          } > release_body.txt
-
-          {
-            echo "body<<EOF"
-            cat release_body.txt
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create Git Tag
-        run: |
-          git checkout main
-          git pull origin main
-          git tag ${{ steps.next_version.outputs.next_version }}
-          git push origin ${{ steps.next_version.outputs.next_version }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.next_version.outputs.next_version }}
-          target_commitish: main
-          name: "🚀 Release ${{ steps.next_version.outputs.next_version }}"
-          body: ${{ steps.release_body.outputs.body }}
+        run: |
+          TAG="${{ steps.get_tag.outputs.tag }}"
+          BODY="${{ steps.changelog.outputs.body }}"
+
+          gh release create "$TAG" \
+            --title "🚀 Release $TAG" \
+            --notes "$BODY" \
+            --target main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Push gem
+      #   env:
+      #     CM_GEMS_PASSWORD: ${{ vars.CM_GEMS_PASSWORD }}
+      #     CM_GEMS_HOST: ${{ vars.CM_GEMS_HOST }}
+      #   run: ./upload.sh $CM_GEMS_PASSWORD $CM_GEMS_HOST
