@@ -33,14 +33,11 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          DATE=$(date +"%d-%m-%Y")
-          
-          # Extract topmost block from CHANGELOG.md (until first --- line)
-          CONTENT=$(cat CHANGELOG.md | awk '/^---/{exit} {print}')
+          CONTENT=$(sed -n "/## $VERSION/,/##/p" CHANGELOG.md | sed '1d;$d' | sed 's/^/- /')
           
           # Create release notes with version and extracted content
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "## 🚀 Release $VERSION" >> $GITHUB_OUTPUT
+          echo "## $VERSION" >> $GITHUB_OUTPUT
           echo "$CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
