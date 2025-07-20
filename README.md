@@ -77,6 +77,15 @@ To embed images in your Typst templates, use the following syntax:
 
 ---
 
+## GitHub Actions Workflow
+
+The repository contains a GitHub Actions workflow file `github-actions-demo.yml` that runs on push events. It includes a basic workflow that:
+
+- Checks out the code
+- Runs a basic test
+- Reports the status of the workflow
+
+
 ## 🧪 Troubleshooting
 
 - **Typst Compilation Erros:** Ensure all image paths in your Typst templates are correct and accesible.
