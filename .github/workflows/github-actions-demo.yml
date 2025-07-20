@@ -19,5 +19,11 @@ jobs:
       - name: Create Changelog
         run: |
           echo "${{ steps.changelog.outputs.changelog }}" > CHANGELOG.md
-        
+      - name: Commit Changelog
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@github.com"
+          git add CHANGELOG.md
+          git commit -m "Changelog for PR #${{ github.event.number }}"
+          git push
    
