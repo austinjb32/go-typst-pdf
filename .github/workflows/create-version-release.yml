@@ -41,11 +41,9 @@ jobs:
           # Create release notes with version and extracted content
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
           echo "## 🚀 Release $VERSION" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "📅 Date: $DATE" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
           echo "$CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
       - name: 🏷️ Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
