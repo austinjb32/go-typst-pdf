@@ -22,8 +22,8 @@ jobs:
 
       - name: Setup Git
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@github.com"
 
       - name: Get PR Metadata & Changelog
         id: pr_data
