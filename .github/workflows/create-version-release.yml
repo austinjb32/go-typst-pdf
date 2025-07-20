@@ -34,14 +34,13 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version }}"
           
-          cat > release.md << EOF
+          cat > CHANGELOG.md << EOF
           ## 🚀 Release $VERSION
           EOF
           
-          echo "release_notes<<EOT" >> $GITHUB_OUTPUT
-          cat release.md >> $GITHUB_OUTPUT
-          echo "EOT" >> $GITHUB_OUTPUT
-          rm release.md
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: 🏷️ Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
