@@ -33,52 +33,15 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          DATE=$(date +"%d-%m-%Y")
-
-          # Extract topmost block (until first --- line)
-          CONTENT=$(awk '/^\-\-\-/{exit} {print}' CHANGELOG.md)
-
-          cat > release.md << 'EOF'
-          ## 🚀 Release $VERSION — Latest
-
-          📅 Date: $DATE
-
-          \-\-\-
-
-          ### 📝 Changelog
-          EOF
-
-          CONTRIBUTORS=()
           
-          IFS=$'\n'
-          while read -r line; do
-            if [[ "$line" =~ ^###\ \[\#([0-9]+)\]\(([^)]+)\)\ (.+)$ ]]; then
-              PR_NUMBER="${BASH_REMATCH[1]}"
-              PR_URL="${BASH_REMATCH[2]}"
-              PR_TITLE="${BASH_REMATCH[3]}"
-              echo -e "\n🔖 [#${PR_NUMBER}](${PR_URL}) ${PR_TITLE}" >> release.md
-            elif [[ "$line" =~ ^\*Author:\*\ @(.+) ]]; then
-              AUTHOR="@${BASH_REMATCH[1]}"
-              echo -e "\n👤 Author: $AUTHOR" >> release.md
-              CONTRIBUTORS+=("$AUTHOR")
-            elif [[ "$line" =~ ^- ]]; then
-              echo -e "\n$line" >> release.md
-            fi
-          done <<< "$CONTENT"
-
-          echo -e "\n\n\\-\\-\\-\n\n### 🙌 Contributors\n" >> release.md
-
-          for contributor in $(printf "%s\n" "${CONTRIBUTORS[@]}" | sort -u); do
-            echo -e "\n- $contributor" >> release.md
-          done
-
-          echo -e "\n\n\\-\\-\\-\n\n❤️ Thank you for contributing!" >> release.md
-
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          cat > release.md << EOF
+          ## 🚀 Release $VERSION
+          EOF
+          
+          echo "release_notes<<EOT" >> $GITHUB_OUTPUT
           cat release.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "EOT" >> $GITHUB_OUTPUT
           rm release.md
-
       - name: 🏷️ Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
@@ -89,7 +52,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.version }}
           target_commitish: main  # Change this if you tag from a different branch
-          name: "🚀 Release ${{ github.event.inputs.version }} — Latest"
+          name: "🚀 Release ${{ github.event.inputs.version }}"
           body: ${{ steps.changelog.outputs.release_notes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
