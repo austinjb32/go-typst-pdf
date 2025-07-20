@@ -49,7 +49,7 @@ jobs:
 
       - name: Prepend formatted changelog to CHANGELOG.md
         run: |
-          HEADER="${{ steps.changelog.outputs.date }} [#${{ steps.changelog.outputs.number }}](${{ steps.changelog.outputs.url }}): ${{ steps.changelog.outputs.title }} - (${{ steps.changelog.outputs.author }})"
+          HEADER="${{ steps.changelog.outputs.date }} [#${{ steps.changelog.outputs.number }}: ${{ steps.changelog.outputs.title }}](${{ steps.changelog.outputs.url }}) - (${{ steps.changelog.outputs.author }})"
 
           {
             echo "$HEADER"
