@@ -1,3 +1,7 @@
+20-07-2025 [#16: ci: update changelog extraction to include full release notes instead of first block](https://github.com/austinjb32/go-typst-pdf/pull/16) - (austinjb32)
+
+- updated changelog extraction to include full release notes instead of first block
+
 20-07-2025 [#15: ci: add GitHub workflow to automate version releases and changelog generation](https://github.com/austinjb32/go-typst-pdf/pull/15) - (austinjb32)
 
 - Cool Version Release
