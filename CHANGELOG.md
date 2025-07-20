@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#29](https://github.com/austinjb32/go-typst-pdf/pull/29) feat: good workflow  
+*Author:* @austinjb32
+
+**Changelog:**  
+- workflow fix
+
+---
+
+## 20-07-2025
+
 ### [#28](https://github.com/austinjb32/go-typst-pdf/pull/28) Action-test  
 *Author:* @austinjb32
 
