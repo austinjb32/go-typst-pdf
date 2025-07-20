@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#30](https://github.com/austinjb32/go-typst-pdf/pull/30) fix: update awk command to properly read CHANGELOG.md content using pipe  
+*Author:* @austinjb32
+
+**Changelog:**  
+- update awk command to properly read CHANGELOG.md content using pipe
+
+---
+
+## 20-07-2025
+
 ### [#29](https://github.com/austinjb32/go-typst-pdf/pull/29) feat: good workflow  
 *Author:* @austinjb32
 
