@@ -59,7 +59,14 @@ jobs:
           # Add each changelog line with dash and space prefix, ignoring empty lines
           while IFS= read -r line; do
             if [[ -n "$line" ]]; then
-              ENTRY+="- $line\n"
+              # Check if line already starts with dash
+              if [[ "$line" =~ ^[[:space:]]*- ]]; then
+                # Line already has a dash, use it as is
+                ENTRY+="$line\n"
+              else
+                # Line doesn't have a dash, add one
+                ENTRY+="- $line\n"
+              fi
             fi
           done <<< "${{ steps.pr_data.outputs.changelog }}"
 
