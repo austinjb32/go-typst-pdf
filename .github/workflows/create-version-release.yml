@@ -25,16 +25,14 @@ jobs:
       - name: Get previous tag
         id: prev_tag
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ github.event.inputs.version }}" | head -n 1)
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ github.event.inputs.version }}" | tail -n 1)
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
       - name: Get merged PRs since previous tag
         id: pr_list
         run: |
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          # Get the date of the previous tag
           PREV_DATE=$(git log -1 --format=%cI $PREV_TAG)
-          # List merged PRs since previous tag, base main
           gh pr list --state merged --base main --search "merged:>$PREV_DATE" --json number > prs.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,12 +44,10 @@ jobs:
           TEMPFILE=changelog_sections.txt
           > $TEMPFILE
           for pr in $PRS; do
-            # Get PR data
             BODY=$(gh pr view $pr --json body,title,author,number,url --jq '.body')
             TITLE=$(gh pr view $pr --json title --jq '.title')
             AUTHOR=$(gh pr view $pr --json author --jq '.author.login')
             URL=$(gh pr view $pr --json url --jq '.url')
-            # Extract Release Changelog section
             SECTION=$(echo "$BODY" | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
             if [ -n "$SECTION" ]; then
               echo "### $TITLE ([#$pr]($URL)) by @$AUTHOR" >> $TEMPFILE
