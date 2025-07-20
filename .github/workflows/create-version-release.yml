@@ -59,11 +59,11 @@ jobs:
       - name: Get merged PRs since previous tag
         id: pr_list
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | tail -n 1)
-          if [ -z "$PREV_TAG" ]; then
+          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
+          if [ "$PREV_TAG" = "v0.0.0" ]; then
             PREV_DATE=$(git log --reverse --format=%cI | head -n 1)
           else
-            PREV_DATE=$(git log -1 --format=%cI $PREV_TAG)
+            PREV_DATE=$(git log -1 --format=%cI "$PREV_TAG")
           fi
           gh pr list --state merged --base main --search "merged:>$PREV_DATE" --json number > prs.json
         env:
