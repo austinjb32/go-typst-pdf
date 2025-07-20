@@ -36,7 +36,7 @@ jobs:
           DATE=$(date +"%d-%m-%Y")
           
           # Extract topmost block from CHANGELOG.md (until first --- line)
-          CONTENT=$(awk '/^---/{exit} {print}' CHANGELOG.md)
+          CONTENT=$(cat CHANGELOG.md | awk '/^---/{exit} {print}')
           
           # Create release notes with version and extracted content
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
