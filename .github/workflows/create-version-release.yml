@@ -3,9 +3,14 @@ name: 🚀 Auto Version Release from PR Changelogs
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Release version (e.g., v1.0.0)"
+      bump:
+        description: "Which part of the version to bump?"
         required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   release:
@@ -22,16 +27,39 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-      - name: Get previous tag
-        id: prev_tag
+      - name: Get latest tag
+        id: get_tag
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ github.event.inputs.version }}" | tail -n 1)
-          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          TAG=$(git tag --sort=-creatordate | tail -n 1)
+          if [ -z "$TAG" ]; then
+            TAG="v0.0.0"
+          fi
+          echo "current_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          CUR="${{ steps.get_tag.outputs.current_tag }}"
+          CUR="${CUR#v}" # Remove leading v
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CUR"
+          BUMP="${{ github.event.inputs.bump }}"
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          NEXT="v$MAJOR.$MINOR.$PATCH"
+          echo "next_version=$NEXT" >> $GITHUB_OUTPUT
 
       - name: Get merged PRs since previous tag
         id: pr_list
         run: |
-          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
           PREV_DATE=$(git log -1 --format=%cI $PREV_TAG)
           gh pr list --state merged --base main --search "merged:>$PREV_DATE" --json number > prs.json
         env:
@@ -48,9 +76,9 @@ jobs:
             TITLE=$(gh pr view $pr --json title --jq '.title')
             AUTHOR=$(gh pr view $pr --json author --jq '.author.login')
             URL=$(gh pr view $pr --json url --jq '.url')
-            SECTION=$(echo "$BODY" | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
+            SECTION=$(echo "$BODY" | awk 'BEGIN{IGNORECASE=1} /^##[ ]*Release Changelog[ ]*\(Required\)/{flag=1; next} /^## /{flag=0} flag')
             if [ -n "$SECTION" ]; then
-              echo "** $TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
+              echo "**$TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
               echo "$SECTION" | sed '/^\s*$/d' >> $TEMPFILE
               echo "" >> $TEMPFILE
             fi
@@ -64,12 +92,16 @@ jobs:
       - name: Build release body
         id: release_body
         run: |
-          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          VERSION="${{ github.event.inputs.version }}"
+          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
+          VERSION="${{ steps.next_version.outputs.next_version }}"
+          CHANGELOG="${{ steps.changelogs.outputs.changelog }}"
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="No changelog entries found. Make sure PRs have a filled-in '## Release Changelog (Required)' section."
+          fi
           {
             echo "## What's Changed"
             echo ""
-            echo "${{ steps.changelogs.outputs.changelog }}"
+            echo "$CHANGELOG"
             echo "**Full Changelog**: [$PREV_TAG...$VERSION](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION)"
           } > release_body.txt
           echo "body<<EOF" >> $GITHUB_OUTPUT
@@ -78,15 +110,15 @@ jobs:
 
       - name: Create Git Tag
         run: |
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
+          git tag ${{ steps.next_version.outputs.next_version }}
+          git push origin ${{ steps.next_version.outputs.next_version }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.event.inputs.version }}
+          tag_name: ${{ steps.next_version.outputs.next_version }}
           target_commitish: main
-          name: "🚀 Release ${{ github.event.inputs.version }}"
+          name: "🚀 Release ${{ steps.next_version.outputs.next_version }}"
           body: ${{ steps.release_body.outputs.body }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
