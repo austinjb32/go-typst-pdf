@@ -1,3 +1,12 @@
+#34 chore: simplify changelog entry format in GitHub workflow (@austinjb32)
+Changelog:
+
+- 
+- chore: simplify changelog entry format in GitHub workflow #34
+
+---
+
+
 ## 
 
 ### [#33](https://github.com/austinjb32/go-typst-pdf/pull/33) chore: update changelog creator workflow with emoji and remove date output  
