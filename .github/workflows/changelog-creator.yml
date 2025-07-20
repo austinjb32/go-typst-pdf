@@ -28,17 +28,14 @@ jobs:
       - name: Get PR Metadata & Changelog
         id: pr_data
         run: |
-          PR_JSON=$(gh pr view ${{ github.event.number }} --json title,author,number,body,url,mergedAt)
+          PR_JSON=$(gh pr view ${{ github.event.number }} --json title,author,number,body,url)
 
           TITLE=$(echo "$PR_JSON" | jq -r '.title')
           AUTHOR=$(echo "$PR_JSON" | jq -r '.author.login')
           NUMBER=$(echo "$PR_JSON" | jq -r '.number')
           URL=$(echo "$PR_JSON" | jq -r '.url')
-          DATE=$(echo "$PR_JSON" | jq -r '.mergedAt' | cut -d"T" -f1 | awk -F- '{print $3 "-" $2 "-" $1}')
-          # Extract lines under "## Release Changelog (Required)" section until next heading or EOF
           CHANGELOG=$(echo "$PR_JSON" | jq -r '.body' | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
 
-          # Escape any special characters in changelog for YAML multiline
           CHANGELOG_ESCAPED=$(printf '%s\n' "$CHANGELOG")
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
@@ -53,32 +50,16 @@ jobs:
 
       - name: Format and prepend changelog entry
         run: |
-          ENTRY="## ${{ steps.pr_data.outputs.date }}\n\n### [#${{ steps.pr_data.outputs.number }}](${{ steps.pr_data.outputs.url }}) ${{ steps.pr_data.outputs.title }}  \n*Author:* @${{ steps.pr_data.outputs.author }}\n\n**Changelog:**  \n"
+          ENTRY="#${{ steps.pr_data.outputs.number }} ${{ steps.pr_data.outputs.title }} (@${{ steps.pr_data.outputs.author }})\nChangelog:\n\n"
 
-          # Add each changelog line with dash and space prefix, ignoring empty lines
           while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-              # Check if line already starts with dash
-              if [[ "$line" =~ ^[[:space:]]*- ]]; then
-                # Line already has a dash, use it as is
-                ENTRY+="$line\n"
-              else
-                # Line doesn't have a dash, add one
-                ENTRY+="- $line\n"
-              fi
-            fi
+            [[ -n "$line" ]] && [[ "$line" =~ ^[[:space:]]*- ]] && ENTRY+="$line\n" || ENTRY+="- $line\n"
           done <<< "${{ steps.pr_data.outputs.changelog }}"
 
           ENTRY+="\n---\n\n"
 
-          # Prepend entry to existing CHANGELOG.md or create if missing
-          if [[ -f CHANGELOG.md ]]; then
-            # Create temp file with new entry then append old changelog
-            echo -e "$ENTRY$(cat CHANGELOG.md)" > CHANGELOG.md
-          else
-            echo -e "$ENTRY" > CHANGELOG.md
-          fi
+          { echo -e "$ENTRY"; [[ -f CHANGELOG.md ]] && cat CHANGELOG.md; } > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
 
           git add CHANGELOG.md
-          git commit -m "Update changelog for PR #${{ steps.pr_data.outputs.number }}"
+          git commit -m "📝 Update changelog for PR #${{ steps.pr_data.outputs.number }}"
           git push
