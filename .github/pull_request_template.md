@@ -24,8 +24,8 @@ you made -->
 results of tests you’ve run is also very helpful. Let the reviewer
 also know if some conditions or edge cases were not tested -->
 
-## Release Changelog
-<!-- If this change should be included in the release changelog, add it here -->
+
+## Release Changelog (Required)
 
 ## Screenshots/Recording (optional)
 <!-- A simple screenshot of the before and after, or of the current state

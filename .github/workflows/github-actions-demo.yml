@@ -28,7 +28,7 @@ jobs:
         id: changelog
         run: |
           BODY=$(gh pr view ${{ github.event.number }} --json body -q ".body")
-          CHANGELOG=$(echo "$BODY" | awk '/## Release Changelog/{flag=1;next}/^## /{flag=0}flag')
+          CHANGELOG=$(echo "$BODY" | awk '/## Release Changelog (Required)/{flag=1;next}/^## /{flag=0}flag')
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
