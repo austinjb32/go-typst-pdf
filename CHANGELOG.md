@@ -1,3 +1,7 @@
+20-07-2025 [#15: ci: add GitHub workflow to automate version releases and changelog generation](https://github.com/austinjb32/go-typst-pdf/pull/15) - (austinjb32)
+
+- Cool Version Release
+
 20-07-2025 [#14: fix: update changelog header format to include PR title in link text](https://github.com/austinjb32/go-typst-pdf/pull/14) - (austinjb32)
 
 - Cool Playlist
