@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#32](https://github.com/austinjb32/go-typst-pdf/pull/32) fix: simplify changelog extraction by using full content without version filtering  
+*Author:* @austinjb32
+
+**Changelog:**  
+- fix: simplify changelog extraction by using full content without version filtering
+
+---
+
+## 20-07-2025
+
 ### [#31](https://github.com/austinjb32/go-typst-pdf/pull/31) fix: simplify changelog extraction logic in release workflow  
 *Author:* @austinjb32
 
