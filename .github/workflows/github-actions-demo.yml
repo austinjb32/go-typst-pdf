@@ -19,5 +19,7 @@ jobs:
       - name: Create Changelog
         run: |
           echo "${{ steps.changelog.outputs.changelog }}" > CHANGELOG.md
-        
+          git add CHANGELOG.md
+          git commit -m "Changelog for PR #${{ github.event.number }}"
+          git push
    
