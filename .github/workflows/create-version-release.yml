@@ -1,5 +1,5 @@
 name: 🚀 Trigger Version Release
-run-name: ${{ github.actor }} is creating a release 🚀
+
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: read
 
     steps:
       - name: 🧾 Checkout repository
@@ -23,7 +22,62 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-      - name: 🏷️ Create Git Tag
+      - name: Get previous tag
+        id: get_prev_tag
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ github.event.inputs.version }}" | head -n 1)
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Extract changelog for new version
+        id: changelog
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PREV_TAG="${{ steps.get_prev_tag.outputs.prev_tag }}"
+          # Extract new changelog section, assumes ## <version> as section headers
+          awk "/^## $VERSION\$/,/^## /{if (!/^## $VERSION\$/) print}" CHANGELOG.md | sed '$d' > section.txt
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat section.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get PRs merged since previous tag
+        id: prs
+        run: |
+          PREV_TAG="${{ steps.get_prev_tag.outputs.prev_tag }}"
+          PRS=$(gh pr list --state merged --base main --search "merged:>$(git log -1 --pretty=format:%cI $PREV_TAG)" --json title,number,author --jq '.[] | "- \(.title) by @\(.author.login) in #\(.number)"')
+          echo "prs<<EOF" >> $GITHUB_OUTPUT
+          echo "$PRS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List contributors
+        id: contributors
+        run: |
+          PREV_TAG="${{ steps.get_prev_tag.outputs.prev_tag }}"
+          CONTRIBUTORS=$(git log $PREV_TAG..HEAD --format='%aN' | sort -u | awk '{print " @"$0}')
+          echo "contributors<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTRIBUTORS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Build release body
+        id: release_body
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PREV_TAG="${{ steps.get_prev_tag.outputs.prev_tag }}"
+          {
+            echo "What's Changed"
+            echo "Changelog:"
+            echo "${{ steps.changelog.outputs.changelog }}"
+            echo "${{ steps.prs.outputs.prs }}"
+            echo "Full Changelog: $PREV_TAG...$VERSION"
+            echo "Contributors"
+            echo "${{ steps.contributors.outputs.contributors }}"
+          } > release_body.txt
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat release_body.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
@@ -34,6 +88,6 @@ jobs:
           tag_name: ${{ github.event.inputs.version }}
           target_commitish: main
           name: "🚀 Release ${{ github.event.inputs.version }}"
-          generate_release_notes: true
+          body: ${{ steps.release_body.outputs.body }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
