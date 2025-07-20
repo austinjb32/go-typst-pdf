@@ -33,11 +33,10 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          CONTENT=$(sed -n "/## $VERSION/,/##/p" CHANGELOG.md | sed '1d;$d' | sed 's/^/- /')
+          CONTENT=$(cat CHANGELOG.md)
           
           # Create release notes with version and extracted content
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "## $VERSION" >> $GITHUB_OUTPUT
           echo "$CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
