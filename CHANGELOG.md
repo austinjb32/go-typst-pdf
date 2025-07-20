@@ -1,3 +1,13 @@
+## 20-07-2025
+
+### [#18](https://github.com/austinjb32/go-typst-pdf/pull/18) ci: add GitHub token to changelog generation step  
+*Author:* @austinjb32
+
+**Changelog:**  
+- - New Changes
+
+---
+
 20-07-2025 [#16: ci: update changelog extraction to include full release notes instead of first block](https://github.com/austinjb32/go-typst-pdf/pull/16) - (austinjb32)
 
 - updated changelog extraction to include full release notes instead of first block
