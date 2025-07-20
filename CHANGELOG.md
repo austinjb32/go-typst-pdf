@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#26](https://github.com/austinjb32/go-typst-pdf/pull/26) refactor: simplify release notes generation in GitHub workflow  
+*Author:* @austinjb32
+
+**Changelog:**  
+- fixed workflow
+
+---
+
+## 20-07-2025
+
 ### [#25](https://github.com/austinjb32/go-typst-pdf/pull/25) refactor: optimize release notes generation by using file-based approach instead of string concatenation  
 *Author:* @austinjb32
 
