@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#25](https://github.com/austinjb32/go-typst-pdf/pull/25) refactor: optimize release notes generation by using file-based approach instead of string concatenation  
+*Author:* @austinjb32
+
+**Changelog:**  
+- fix
+
+---
+
+## 20-07-2025
+
 ### [#24](https://github.com/austinjb32/go-typst-pdf/pull/24) feat: enhance release workflow with improved changelog parsing and formatting  
 *Author:* @austinjb32
 
