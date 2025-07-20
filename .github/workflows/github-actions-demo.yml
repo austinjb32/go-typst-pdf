@@ -24,13 +24,27 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
 
-      - name: Get Changelog
+      - name: Get PR Metadata & Changelog
         id: changelog
         run: |
-          BODY=$(gh pr view ${{ github.event.number }} --json body -q ".body")
-          CHANGELOG=$(echo "$BODY" | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
+          PR_DATA=$(gh pr view ${{ github.event.number }} --json title,author,number,updatedAt,body,url)
+        
+          TITLE=$(echo "$PR_DATA" | jq -r '.title')
+          AUTHOR=$(echo "$PR_DATA" | jq -r '.author.login')
+          NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          DATE=$(echo "$PR_DATA" | jq -r '.updatedAt' | cut -d'T' -f1 | awk -F'-' '{print $3 "-" $2 "-" $1}')
+          URL=$(echo "$PR_DATA" | jq -r '.url')
+        
+          RAW_CHANGELOG=$(echo "$PR_DATA" | jq -r '.body' | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
+        
+          # Escape newlines
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "number=$NUMBER" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "$RAW_CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
