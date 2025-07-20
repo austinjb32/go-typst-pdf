@@ -44,7 +44,12 @@ jobs:
 
       - name: Bump version and get latest tag
         id: get_tag
-        run: ./scripts/get_latest_tag.sh ${{ github.event.inputs.bump }}
+        run: |
+          BUMP_OUTPUT=$(gem bump --version ${{ github.event.inputs.bump }} -p)
+          VERSION=$(echo "$BUMP_OUTPUT" | grep -oE 'to [0-9]+\.[0-9]+\.[0-9]+' | awk '{print $2}')
+          TAG="v$VERSION"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Found tag: $TAG"
 
       - name: Generate changelog
         id: changelog
