@@ -1,3 +1,13 @@
+## 
+
+### [#33](https://github.com/austinjb32/go-typst-pdf/pull/33) chore: update changelog creator workflow with emoji and remove date output  
+*Author:* @austinjb32
+
+**Changelog:**  
+- chore: update changelog creator workflow with emoji and remove date output
+
+---
+
 ## 20-07-2025
 
 ### [#32](https://github.com/austinjb32/go-typst-pdf/pull/32) fix: simplify changelog extraction by using full content without version filtering  
