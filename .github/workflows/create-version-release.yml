@@ -7,10 +7,6 @@ on:
       version:
         description: "Semantic version for release (e.g., v1.2.3)"
         required: true
-      target_branch:
-        description: "Branch to tag"
-        default: main
-        required: true
 
 jobs:
   release:
@@ -24,8 +20,8 @@ jobs:
 
       - name: Setup Git
         run: |
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@github.com"
 
       - name: Read full changelog content
         id: changelog
@@ -40,6 +36,12 @@ jobs:
             echo "CHANGELOG.md not found" >&2
             exit 1
           fi
+      - name: Reset CHANGELOG.md
+        run: |
+          rm CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "Reset CHANGELOG.md"
+          git push
 
       - name: Create Git Tag
         run: |
@@ -50,7 +52,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          target_commitish: ${{ github.event.inputs.target_branch }}
+          target_commitish: main
           name: Release ${{ github.event.inputs.version }}
           body: ${{ steps.changelog.outputs.changelog }}
         env:
