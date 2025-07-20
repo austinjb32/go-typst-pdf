@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#31](https://github.com/austinjb32/go-typst-pdf/pull/31) fix: simplify changelog extraction logic in release workflow  
+*Author:* @austinjb32
+
+**Changelog:**  
+- fix: simplify changelog extraction logic in release workflow
+
+---
+
+## 20-07-2025
+
 ### [#30](https://github.com/austinjb32/go-typst-pdf/pull/30) fix: update awk command to properly read CHANGELOG.md content using pipe  
 *Author:* @austinjb32
 
