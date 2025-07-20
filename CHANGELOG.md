@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#19](https://github.com/austinjb32/go-typst-pdf/pull/19) ci: update git config to use actor info and reset changelog after release  
+*Author:* @austinjb32
+
+**Changelog:**  
+- - New Values
+
+---
+
+## 20-07-2025
+
 ### [#18](https://github.com/austinjb32/go-typst-pdf/pull/18) ci: add GitHub token to changelog generation step  
 *Author:* @austinjb32
 
