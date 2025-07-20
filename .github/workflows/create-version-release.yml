@@ -1,4 +1,4 @@
-name: 🚀 Auto Version Release from PR Changelogs
+name: 🚀 AI Inference Release Notes
 
 on:
   workflow_dispatch:
@@ -57,67 +57,6 @@ jobs:
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
 
       - name: Get merged PRs since previous tag
-        id: pr_listname: 🚀 Auto Version Release from PR Changelogs
-
-on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: "Which part of the version to bump?"
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Important to access full tag and commit history
-
-      - name: Set up Git
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          TAG=$(git tag --sort=-creatordate | head -n 1)
-          if [ -z "$TAG" ]; then
-            TAG="v0.0.0"
-          fi
-          echo "current_tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Calculate next version
-        id: next_version
-        run: |
-          CUR="${{ steps.get_tag.outputs.current_tag }}"
-          CUR="${CUR#v}" # Remove leading v
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CUR"
-          BUMP="${{ github.event.inputs.bump }}"
-          if [ "$BUMP" = "major" ]; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif [ "$BUMP" = "minor" ]; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-          NEXT="v$MAJOR.$MINOR.$PATCH"
-          echo "next_version=$NEXT" >> "$GITHUB_OUTPUT"
-
-      - name: Get merged PRs since previous tag
         id: pr_list
         run: |
           PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
@@ -130,130 +69,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract changelogs from PRs
-        id: changelogs
+      - name: Fetch PR details for AI
+        id: fetch_prs
         run: |
           PRS=$(jq '.[].number' prs.json)
-          if [ -z "$PRS" ]; then
-            echo "No merged PRs found since last release."
-            echo "changelog=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          TEMPFILE=changelog_sections.txt
-          > $TEMPFILE
-
+          echo "[" > pr_summaries.json
+          FIRST=1
           for pr in $PRS; do
-            BODY=$(gh pr view $pr --json body --jq '.body')
-            TITLE=$(gh pr view $pr --json title --jq '.title')
-            AUTHOR=$(gh pr view $pr --json author --jq '.author.login')
-            URL=$(gh pr view $pr --json url --jq '.url')
-            SECTION=$(echo "$BODY" | awk 'BEGIN{IGNORECASE=1} /^##[ ]*Release Changelog[ ]*\(Required\)/{flag=1; next} /^## /{flag=0} flag')
-            if [ -n "$SECTION" ]; then
-              echo "**$TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
-              echo "$SECTION" | sed '/^\s*$/d' >> $TEMPFILE
-              echo "" >> $TEMPFILE
+            if [ $FIRST -eq 0 ]; then
+              echo "," >> pr_summaries.json
             fi
+            gh pr view $pr --json number,title,body,author,url,mergedAt >> pr_summaries.json
+            FIRST=0
           done
-
-          {
-            echo "changelog<<EOF"
-            cat $TEMPFILE
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          echo "]" >> pr_summaries.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build release body
-        id: release_body
-        run: |
-          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
-          VERSION="${{ steps.next_version.outputs.next_version }}"
-          CHANGELOG="${{ steps.changelogs.outputs.changelog }}"
-
-          if [ -z "$CHANGELOG" ]; then
-            echo "No changelog entries found. Skipping release."
-            exit 0
-          fi
-
-          {
-            echo "## What's Changed"
-            echo ""
-            echo "$CHANGELOG"
-            echo "**Full Changelog**: [$PREV_TAG...$VERSION](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION)"
-          } > release_body.txt
-
-          {
-            echo "body<<EOF"
-            cat release_body.txt
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create Git Tag
-        run: |
-          git checkout main
-          git pull origin main
-          git tag ${{ steps.next_version.outputs.next_version }}
-          git push origin ${{ steps.next_version.outputs.next_version }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: AI Inference - Summarize Release Notes
+        id: ai_release_notes
+        uses: actions/ai-inference@v1
         with:
-          tag_name: ${{ steps.next_version.outputs.next_version }}
-          target_commitish: main
-          name: "🚀 Release ${{ steps.next_version.outputs.next_version }}"
-          body: ${{ steps.release_body.outputs.body }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        run: |
-          PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
-          if [ "$PREV_TAG" = "v0.0.0" ]; then
-            PREV_DATE=$(git log --reverse --format=%cI | head -n 1)
-          else
-            PREV_DATE=$(git log -1 --format=%cI "$PREV_TAG")
-          fi
-          gh pr list --state merged --base main --search "merged:>$PREV_DATE" --json number > prs.json
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract changelogs from PRs
-        id: changelogs
-        run: |
-          PRS=$(jq '.[].number' prs.json)
-          TEMPFILE=changelog_sections.txt
-          > $TEMPFILE
-          for pr in $PRS; do
-            BODY=$(gh pr view $pr --json body,title,author,number,url --jq '.body')
-            TITLE=$(gh pr view $pr --json title --jq '.title')
-            AUTHOR=$(gh pr view $pr --json author --jq '.author.login')
-            URL=$(gh pr view $pr --json url --jq '.url')
-            SECTION=$(echo "$BODY" | awk 'BEGIN{IGNORECASE=1} /^##[ ]*Release Changelog[ ]*\(Required\)/{flag=1; next} /^## /{flag=0} flag')
-            if [ -n "$SECTION" ]; then
-              echo "**$TITLE ([#$pr]($URL)) by @$AUTHOR**" >> $TEMPFILE
-              echo "$SECTION" | sed '/^\s*$/d' >> $TEMPFILE
-              echo "" >> $TEMPFILE
-            fi
-          done
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          cat $TEMPFILE >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          input-path: pr_summaries.json
+          instruction: |
+            Summarize the following pull requests into a clear, user-facing changelog. 
+            Group similar changes, deduplicate where possible, and use concise, readable language. 
+            Use bullet points. Do not mention PR numbers unless necessary.
 
       - name: Build release body
         id: release_body
         run: |
           PREV_TAG="${{ steps.get_tag.outputs.current_tag }}"
           VERSION="${{ steps.next_version.outputs.next_version }}"
-          CHANGELOG="${{ steps.changelogs.outputs.changelog }}"
-          if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="No changelog entries found. Make sure PRs have a filled-in '## Release Changelog (Required)' section."
-          fi
+          NOTES="${{ steps.ai_release_notes.outputs.result }}"
           {
             echo "## What's Changed"
             echo ""
-            echo "$CHANGELOG"
+            echo "$NOTES"
+            echo ""
             echo "**Full Changelog**: [$PREV_TAG...$VERSION](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION)"
           } > release_body.txt
           echo "body<<EOF" >> $GITHUB_OUTPUT
