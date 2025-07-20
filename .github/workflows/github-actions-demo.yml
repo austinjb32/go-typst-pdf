@@ -13,7 +13,6 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: write
     steps:
       - name: Checkout repository
@@ -36,8 +35,7 @@ jobs:
           URL=$(echo "$PR_DATA" | jq -r '.url')
         
           RAW_CHANGELOG=$(echo "$PR_DATA" | jq -r '.body' | awk '/^## Release Changelog \(Required\)/{flag=1; next} /^## /{flag=0} flag')
-        
-          # Escape newlines
+
           echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "number=$NUMBER" >> $GITHUB_OUTPUT
           echo "title=$TITLE" >> $GITHUB_OUTPUT
@@ -49,12 +47,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print Changelog
-        run: echo "${{ steps.changelog.outputs.changelog }}"
-
-      - name: Create and commit Changelog
+      - name: Prepend formatted changelog to CHANGELOG.md
         run: |
-          echo "${{ steps.changelog.outputs.changelog }}" > CHANGELOG.md
+          HEADER="${{ steps.changelog.outputs.date }} [#${{ steps.changelog.outputs.number }}](${{ steps.changelog.outputs.url }}): ${{ steps.changelog.outputs.title }} - (${{ steps.changelog.outputs.author }})"
+
+          {
+            echo "$HEADER"
+            echo ""
+            echo "${{ steps.changelog.outputs.changelog }}"
+            echo ""
+            if [ -f CHANGELOG.md ]; then
+              cat CHANGELOG.md
+            fi
+          } > new_changelog.md
+
+          mv new_changelog.md CHANGELOG.md
+
           git add CHANGELOG.md
-          git commit -m "Changelog for PR #${{ github.event.number }}"
+          git commit -m "Append changelog for PR #${{ github.event.number }}"
           git push
