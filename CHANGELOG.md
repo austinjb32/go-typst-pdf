@@ -1,1 +1,2 @@
-- Cool Stuff
+- Cool Stuff 2.0
+- Very Good
