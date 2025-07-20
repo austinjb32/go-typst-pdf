@@ -36,59 +36,48 @@ jobs:
           DATE=$(date +"%d-%m-%Y")
 
           # Extract topmost block (until first --- line)
-          CONTENT=$(awk '/^---/{exit} {print}' CHANGELOG.md)
+          CONTENT=$(awk '/^\-\-\-/{exit} {print}' CHANGELOG.md)
 
-          RELEASE_MD="## 🚀 Release $VERSION — Latest
+          cat > release.md << 'EOF'
+          ## 🚀 Release $VERSION — Latest
 
-        📅 Date: $DATE
+          📅 Date: $DATE
 
-        ---
+          \-\-\-
 
-        ### 📝 Changelog
-        "
-                CONTRIBUTORS=()
+          ### 📝 Changelog
+          EOF
 
-                IFS=$'\n'
-                while read -r line; do
-                    if [[ "$line" =~ ^###\ \[\#([0-9]+)\]\(([^)]+)\)\ (.+)$ ]]; then
-                    PR_NUMBER="${BASH_REMATCH[1]}"
-                    PR_URL="${BASH_REMATCH[2]}"
-                    PR_TITLE="${BASH_REMATCH[3]}"
-                    RELEASE_MD+="
-        🔖 [#${PR_NUMBER}](${PR_URL}) ${PR_TITLE}
-        "
-                    elif [[ "$line" =~ ^\*Author:\*\ @(.+) ]]; then
-                    AUTHOR="@${BASH_REMATCH[1]}"
-                    RELEASE_MD+="👤 Author: $AUTHOR
-        "
-                    CONTRIBUTORS+=("$AUTHOR")
-                    elif [[ "$line" =~ ^- ]]; then
-                    RELEASE_MD+="$line
-        "
-                    fi
-                done <<< "$CONTENT"
+          CONTRIBUTORS=()
+          
+          IFS=$'\n'
+          while read -r line; do
+            if [[ "$line" =~ ^###\ \[\#([0-9]+)\]\(([^)]+)\)\ (.+)$ ]]; then
+              PR_NUMBER="${BASH_REMATCH[1]}"
+              PR_URL="${BASH_REMATCH[2]}"
+              PR_TITLE="${BASH_REMATCH[3]}"
+              echo -e "\n🔖 [#${PR_NUMBER}](${PR_URL}) ${PR_TITLE}" >> release.md
+            elif [[ "$line" =~ ^\*Author:\*\ @(.+) ]]; then
+              AUTHOR="@${BASH_REMATCH[1]}"
+              echo -e "\n👤 Author: $AUTHOR" >> release.md
+              CONTRIBUTORS+=("$AUTHOR")
+            elif [[ "$line" =~ ^- ]]; then
+              echo -e "\n$line" >> release.md
+            fi
+          done <<< "$CONTENT"
 
-                RELEASE_MD+="
-        ---
+          echo -e "\n\n\\-\\-\\-\n\n### 🙌 Contributors\n" >> release.md
 
-        ### 🙌 Contributors
+          for contributor in $(printf "%s\n" "${CONTRIBUTORS[@]}" | sort -u); do
+            echo -e "\n- $contributor" >> release.md
+          done
 
-        "
-
-                for contributor in $(printf "%s\n" "${CONTRIBUTORS[@]}" | sort -u); do
-                    RELEASE_MD+="- $contributor
-        "
-                done
-
-                RELEASE_MD+="
-        ---
-
-        ❤️ Thank you for contributing!
-        "
+          echo -e "\n\n\\-\\-\\-\n\n❤️ Thank you for contributing!" >> release.md
 
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$RELEASE_MD" >> $GITHUB_OUTPUT
+          cat release.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          rm release.md
 
       - name: 🏷️ Create Git Tag
         run: |
