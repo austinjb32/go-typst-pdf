@@ -1,5 +1,15 @@
 ## 20-07-2025
 
+### [#24](https://github.com/austinjb32/go-typst-pdf/pull/24) feat: enhance release workflow with improved changelog parsing and formatting  
+*Author:* @austinjb32
+
+**Changelog:**  
+- Fixed
+
+---
+
+## 20-07-2025
+
 ### [#23](https://github.com/austinjb32/go-typst-pdf/pull/23) fix: prevent duplicate dashes in changelog entries by checking line prefix  
 *Author:* @austinjb32
 
