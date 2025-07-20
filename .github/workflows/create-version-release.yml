@@ -1,11 +1,10 @@
-name: Trigger Version Release
-run-name: ${{ github.actor }} is triggering a version release 🚀
+name: 🚀 Trigger Version Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Semantic version for release (e.g., v1.2.3)"
+        description: "Release version (e.g., v1.0.4)"
         required: true
 
 jobs:
@@ -15,45 +14,61 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: 🧾 Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Git
+      - name: 🛠️ Set up Git
         run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@github.com"
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
 
-      - name: Read full changelog content
+      - name: 📦 Extract release block from CHANGELOG.md
         id: changelog
         run: |
-          # Read entire CHANGELOG.md
-          if [[ -f CHANGELOG.md ]]; then
-            CHANGELOG_CONTENT=$(cat CHANGELOG.md)
-            echo "changelog<<EOF" >> $GITHUB_OUTPUT
-            echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "CHANGELOG.md not found" >&2
-            exit 1
-          fi
-      - name: Reset CHANGELOG.md
-        run: |
-          rm CHANGELOG.md
-          git add CHANGELOG.md
-          git commit -m "Reset CHANGELOG.md"
-          git push
+          VERSION="${{ github.event.inputs.version }}"
+          DATE=$(date +"%d-%m-%Y")
 
-      - name: Create Git Tag
+          # Grab first block before next date or EOF
+          CONTENT=$(awk 'NR==1{print; next} /^[0-9]{2}-[0-9]{2}-[0-9]{4}/{exit} {print}' CHANGELOG.md)
+
+          # Extract PR info and changelog content
+          PR_LINE=$(echo "$CONTENT" | grep -m1 -E '\[#([0-9]+)\].*')
+          PR_NUMBER=$(echo "$PR_LINE" | grep -oP '(?<=#)[0-9]+')
+          PR_URL=$(echo "$PR_LINE" | grep -oP '\(https://[^)]*\)')
+          PR_TITLE=$(echo "$PR_LINE" | sed -E 's/.*\): (.*) -.*/\1/')
+          AUTHOR=$(echo "$PR_LINE" | grep -oP '\(@[^\)]+\)' | tr -d '()')
+
+          CHANGELOG_BODY=$(echo "$CONTENT" | sed '1,/Changelog:/d' | sed '/^---/,$d' | sed '/^$/d' | sed 's/^/- /')
+
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "title=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "changelog_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Create Git Tag
         run: |
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
 
-      - name: Create GitHub Release
+      - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
           target_commitish: main
-          name: Release ${{ github.event.inputs.version }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          name: "🚀 Release ${{ github.event.inputs.version }} — Latest"
+          body: |
+            ### 📝 Changelog:
+
+            ${{ steps.changelog.outputs.changelog_body }}
+
+            ---
+
+            ### 🙌 Contributors
+
+            - ${{ steps.changelog.outputs.author }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
