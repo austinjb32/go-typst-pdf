@@ -2,12 +2,16 @@ package api
 
 import (
 	"encoding/json"
+	"go-typst-pdf/pdf"
 	"go-typst-pdf/queue"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+const templatesDir = "pdf/templates"
 
 type PDFRequest struct {
 	Template string                 `json:"template"`
@@ -16,13 +20,23 @@ type PDFRequest struct {
 
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	var req PDFRequest
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if req.Template == "" {
+		http.Error(w, "template is required", http.StatusBadRequest)
+		return
+	}
 
 	job := queue.Job{
 		Template: req.Template,
 		Data:     req.Data,
 	}
-	queue.AddJobToQueue(job)
+	if err := queue.AddJobToQueue(job, 5*time.Second); err != nil {
+		http.Error(w, "Job queue is full, try again later", http.StatusServiceUnavailable)
+		return
+	}
 
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("Job added to queue"))
@@ -34,8 +48,7 @@ type TemplateRequest struct {
 }
 
 func ListTemplatesHandler(w http.ResponseWriter, r *http.Request) {
-	templatesPath := "templates"
-	entries, err := os.ReadDir(templatesPath)
+	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
 		http.Error(w, "Failed to read templates directory", http.StatusInternalServerError)
 		return
@@ -78,8 +91,8 @@ func UploadTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save the file to the `pdf/templates` directory
-	templatePath := filepath.Join("templates", handler.Filename)
+	// Save the file to the pdf/templates directory
+	templatePath := filepath.Join(templatesDir, handler.Filename)
 	dst, err := os.Create(templatePath)
 	if err != nil {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
@@ -87,11 +100,13 @@ func UploadTemplateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
-	_, err = io.Copy(dst, file)
-	if err != nil {
+	if _, err := io.Copy(dst, file); err != nil {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
+
+	// Invalidate the cache so the new template is picked up
+	pdf.InvalidateTemplateCache(handler.Filename)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Template uploaded successfully"))

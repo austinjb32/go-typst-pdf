@@ -2,6 +2,7 @@ package pdf
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"go-typst-pdf/storage"
 	"os"
@@ -9,17 +10,25 @@ import (
 	"path/filepath"
 	"sync"
 	"text/template"
-	"time"
 )
+
+const templatesPath = "pdf/templates"
 
 var (
 	TemplateCache = make(map[string]*template.Template)
 	CacheMutex    sync.RWMutex
 )
 
+func mustRandBytes(n int) []byte {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return b
+}
+
 // Load all templates into in-memory cache at startup
 func InitTemplateCache() {
-	templatesPath := "templates"
 	entries, err := os.ReadDir(templatesPath)
 	if err != nil {
 		panic("Failed to read templates directory: " + err.Error())
@@ -45,6 +54,13 @@ func InitTemplateCache() {
 	}
 }
 
+// InvalidateTemplateCache removes a template from the in-memory cache
+func InvalidateTemplateCache(name string) {
+	CacheMutex.Lock()
+	delete(TemplateCache, name)
+	CacheMutex.Unlock()
+}
+
 // Try to get template from memory cache, fallback to disk read
 func getCachedTemplate(name string) (*template.Template, error) {
 	CacheMutex.RLock()
@@ -54,7 +70,7 @@ func getCachedTemplate(name string) (*template.Template, error) {
 		return tmpl, nil
 	}
 	// Fallback: read from disk and cache
-	path := filepath.Join("templates", name)
+	path := filepath.Join(templatesPath, name)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -75,8 +91,10 @@ type Job struct {
 	Data     map[string]interface{} `json:"data"`
 }
 
-func GeneratePDFsInParallel(jobs []Job) {
+func GeneratePDFsInParallel(jobs []Job) []error {
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
 	sem := make(chan struct{}, 10) // Limit concurrency to 10 goroutines
 
 	for _, job := range jobs {
@@ -88,12 +106,15 @@ func GeneratePDFsInParallel(jobs []Job) {
 
 			_, err := GenerateAndUpload(job.Template, job.Data)
 			if err != nil {
-				fmt.Printf("Error generating PDF for template %s: %v", job.Template, err)
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("template %s: %w", job.Template, err))
+				mu.Unlock()
 			}
 		}(job)
 	}
 
 	wg.Wait()
+	return errs
 }
 
 func GenerateAndUpload(templateName string, data map[string]interface{}) (string, error) {
@@ -107,34 +128,29 @@ func GenerateAndUpload(templateName string, data map[string]interface{}) (string
 		return "", fmt.Errorf("template execution failed: %w", err)
 	}
 
-	// Save rendered Typst source to a temp file
-	inFile := fmt.Sprintf("/dev/shm/invoice_%d.typ", time.Now().UnixNano())
-	outFile := fmt.Sprintf("/dev/shm/invoice_%d.pdf", time.Now().UnixNano())
-
-	// Ensure the output directory exists
-	outputDir := "output/pdf"
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return "", fmt.Errorf("failed to create output directory: %w", err)
-	}
+	// Use a single unique ID for both temp files to prevent collision
+	id := fmt.Sprintf("%x", mustRandBytes(16))
+	inFile := filepath.Join(os.TempDir(), fmt.Sprintf("typst_%s.typ", id))
+	outFile := filepath.Join(os.TempDir(), fmt.Sprintf("typst_%s.pdf", id))
 
 	if err := os.WriteFile(inFile, rendered.Bytes(), 0644); err != nil {
 		return "", fmt.Errorf("failed to write temp .typ file: %w", err)
 	}
-
-	defer os.Remove(inFile) // Clean up after compile
+	defer os.Remove(inFile) // Clean up .typ source
 
 	cmd := exec.Command("typst", "compile", inFile, outFile)
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	cmd.Stdout = os.Stdout // Optional: log to console
 
 	if err := cmd.Run(); err != nil {
+		os.Remove(outFile) // Clean up partial PDF on failure
 		return "", fmt.Errorf("typst compile failed: %v, stderr: %s", err, stderr.String())
 	}
 
 	// Upload PDF and return URL
 	url, err := storage.UploadPDF(outFile)
+	os.Remove(outFile) // Always clean up PDF temp file
 	if err != nil {
 		return "", fmt.Errorf("upload failed: %w", err)
 	}
