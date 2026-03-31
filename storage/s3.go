@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,12 +13,23 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+var (
+	awsSession *session.Session
+	sessionOnce sync.Once
+)
+
+func getSession() *session.Session {
+	sessionOnce.Do(func() {
+		awsSession = session.Must(session.NewSession(&aws.Config{
+			Region:      aws.String(os.Getenv("AWS_REGION")),
+			Credentials: credentials.NewEnvCredentials(),
+		}))
+	})
+	return awsSession
+}
+
 func UploadPDF(filePath string) (string, error) {
-	// Create a new AWS session
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region:      aws.String(os.Getenv("AWS_REGION")),
-		Credentials: credentials.NewEnvCredentials(),
-	}))
+	sess := getSession()
 
 	// Create an S3 uploader
 	uploader := s3manager.NewUploader(sess)
@@ -45,19 +57,15 @@ func UploadPDF(filePath string) (string, error) {
 	// Create an S3 client to generate the pre-signed URL
 	s3Client := s3.New(sess)
 
-	// Define the expiration time for the pre-signed URL
-	expiration := time.Hour // 1 hour
-
 	// Generate the pre-signed URL
 	req, _ := s3Client.GetObjectRequest(&s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_BUCKET")),
 		Key:    aws.String(key),
 	})
-	presignedURL, err := req.Presign(expiration)
+	presignedURL, err := req.Presign(time.Hour)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate pre-signed URL: %w", err)
 	}
 
-	// Return the pre-signed URL
 	return presignedURL, nil
 }

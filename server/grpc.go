@@ -11,11 +11,11 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type server struct {
+type pdfServer struct {
 	proto.UnimplementedPDFServiceServer
 }
 
-func (s *server) GeneratePDF(ctx context.Context, req *proto.PDFRequest) (*proto.PDFResponse, error) {
+func (s *pdfServer) GeneratePDF(ctx context.Context, req *proto.PDFRequest) (*proto.PDFResponse, error) {
 	data := make(map[string]interface{})
 	for k, v := range req.Data {
 		data[k] = v
@@ -28,12 +28,16 @@ func (s *server) GeneratePDF(ctx context.Context, req *proto.PDFRequest) (*proto
 	return &proto.PDFResponse{Url: url}, nil
 }
 
+func NewGRPCServer() *grpc.Server {
+	s := grpc.NewServer()
+	proto.RegisterPDFServiceServer(s, &pdfServer{})
+	reflection.Register(s)
+	return s
+}
+
 func StartGRPC(listener net.Listener) {
 	log.Println("Starting gRPC server...")
-	s := grpc.NewServer()
-	proto.RegisterPDFServiceServer(s, &server{})
-	reflection.Register(s)
-
+	s := NewGRPCServer()
 	if err := s.Serve(listener); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

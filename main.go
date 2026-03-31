@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"go-typst-pdf/api"
 	"go-typst-pdf/pdf"
 	"go-typst-pdf/queue"
@@ -8,6 +9,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -23,25 +28,50 @@ func main() {
 	// Initialize the template cache
 	pdf.InitTemplateCache()
 
-	// Start the HTTP API server in a goroutine
+	// Start the HTTP API server
+	router := api.SetupRouter()
+	httpSrv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
 	go func() {
-		router := api.SetupRouter()
 		log.Println("Starting HTTP server on :8080")
-		if err := http.ListenAndServe(":8080", router); err != nil {
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start HTTP server: %v", err)
 		}
 	}()
 
-	// Start the gRPC server in a goroutine
+	// Start the gRPC server
+	listener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("Failed to listen on :50051: %v", err)
+	}
+	grpcSrv := server.NewGRPCServer()
 	go func() {
-		listener, err := net.Listen("tcp", ":50051")
-		if err != nil {
-			log.Fatalf("Failed to listen on :50051: %v", err)
-		}
 		log.Println("Starting gRPC server on :50051")
-		server.StartGRPC(listener)
+		if err := grpcSrv.Serve(listener); err != nil {
+			log.Fatalf("Failed to start gRPC server: %v", err)
+		}
 	}()
 
-	// Block the main goroutine to keep the application running
-	select {}
+	// Wait for interrupt signal for graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down servers...")
+
+	// Gracefully shut down HTTP server
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	// Gracefully stop gRPC server
+	grpcSrv.GracefulStop()
+
+	// Close the job queue
+	queue.CloseJobQueue()
+
+	log.Println("Server stopped")
 }

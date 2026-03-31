@@ -1,9 +1,11 @@
 package queue
 
 import (
+	"fmt"
 	"go-typst-pdf/pdf"
 	"log"
 	"sync"
+	"time"
 )
 
 type Job struct {
@@ -35,9 +37,14 @@ func StartWorkerPool(workerCount int) {
 	log.Println("All workers have completed their tasks.")
 }
 
-func AddJobToQueue(job Job) {
-	jobQueue <- job
-	log.Printf("Job added to queue: %v", job)
+func AddJobToQueue(job Job, timeout time.Duration) error {
+	select {
+	case jobQueue <- job:
+		log.Printf("Job added to queue: %v", job)
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("queue full, timed out after %v", timeout)
+	}
 }
 
 func CloseJobQueue() {

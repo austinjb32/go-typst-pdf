@@ -20,7 +20,7 @@ RUN curl -fsSL https://github.com/typst/typst/releases/download/v0.12.0/typst-x8
 
 COPY --from=builder /app/main .
 COPY --from=builder /app/static ./static
-COPY --from=builder /app/pdf/templates ./templates
+COPY --from=builder /app/pdf/templates ./pdf/templates
 
 EXPOSE 8080 50051
 COPY .env /app/.env
